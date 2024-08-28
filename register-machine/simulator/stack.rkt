@@ -79,7 +79,7 @@
                (cons label args)))
 
             ((memq msg '(pop push))
-             (error "Use 'label-push' and 'label-pop', not 'push' or 'pop' -- LABEL STACK"))
+             (error "Use 'label-push' and 'label-pop', not 'push' or 'pop' -- LABEL STACK" msg))
 
             (else (s msg))))))
                  
