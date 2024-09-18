@@ -6,30 +6,33 @@
            "labels.rkt")
 
 (define (make-instruction text)
-  (let ((inst (cons text '())))
+  (let ((inst (list text '())))
     (lambda (msg)
       (cond ((eq? msg 'text) (car inst))
-            ((eq? msg 'exec-proc) (cdr inst))
+            ((eq? msg 'exec-proc) (cadr inst))
             ((eq? msg 'set-exec-proc)
-             (lambda (proc) (set-cdr! inst proc)))))))
+             (lambda (proc) (set-car! (cdr inst) proc)))
+            (else (error "Unknown msg -- INSTRUCTION" msg))
+            ))))
 
 (define (update-inst-seq! inst-seq machine)
   (for-each (lambda (inst)
-              ((inst 'set-exec-proc)
-               (make-execution-procedure (inst 'text) machine)))
+              (if (not (label? inst))
+                  ((inst 'set-exec-proc)
+                   (make-execution-procedure (inst 'text) machine))))
      inst-seq))
 
 (define (assemble controller-text machine)
-  (let* ((inst-text (map (lambda (inst)
-                           (if (label-inst? inst)
-                               inst
-                               (make-instruction inst)))
-                         controller-text))
+  (let* ((ctrl-seq (map (lambda (inst)
+                          (if (label-inst? inst)
+                              inst
+                              (make-instruction inst)))
+                        controller-text))
 
-         (inst-seq (filter (lambda (i) (not (label-inst? i)))
-                           inst-text)))
+         (inst-seq (filter (lambda (i) (not (restored-regs-exp? i)))
+                           ctrl-seq)))
 
-    ((machine 'install-labels) (get-labels-table inst-seq inst-text))
+    ((machine 'install-labels) (get-labels-dispatch ctrl-seq inst-seq))
     
     (update-inst-seq! inst-seq machine)
 
