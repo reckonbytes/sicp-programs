@@ -50,6 +50,7 @@
 (define (label-inst? inst)
   (or (symbol? inst)
       (restored-regs-exp? inst)))
+(define label? symbol?)
 
 (define (perform-action inst) (cdr inst))
 
