@@ -1,7 +1,12 @@
 #lang sicp
 
 (#%require "register.rkt"
-           (only "stack.rkt" make-label-stack))
+           (only "stack.rkt" make-label-stack)
+           (rename rnrs/lists-6
+                   rnrs-remove remove)
+           (rename rnrs/lists-6
+                   rnrs-find find)
+           )             
 
 (define (make-new-machine)
   (let ((pc (make-register 'pc))
@@ -13,17 +18,45 @@
           (register-table
            (list (list 'pc pc) (list 'flag flag)))
           (labels '())
-          (instruction-count 0)
+          (inst-count 0)
           (trace 'off)
           (specs '())
-          (in-regs '())
-          (out-regs '()))
+          (breakpoints '())
+          (curr-label #f)
+          (label-inst-count 0)
+          (breakpoint-n #f))
+
+      (define (advance-pc)
+        ((pc 'set) (cdr (pc 'get))))
+
+      (define (set-breakpoint label n)
+        (let ((max-bp ((labels 'max-breakpoint) label)))
+          (if (or (< n 1) (> n max-bp))
+              (error "Breakpoint n must be >0 and < number of instructions before the next label. -- SET-BREAKPOINT." n)))
+        
+        (let ((label-bps (assoc label breakpoints)))
+          (if label-bps
+              (if (not (memq n label-bps))
+                  (set-cdr! label-bps (cons n (cdr label-bps))))
+              (set! breakpoints (cons (list label n) breakpoints)))))
+
+      (define (cancel-breakpoint label n)
+        (let ((label-bps (assoc label breakpoints)))
+          (if (and label-bps (memq n label-bps))
+              (set-cdr! label-bps (rnrs-remove n (cdr label-bps)))
+              (error "Breakpoint not found -- CANCEL-BREAKPOINT." label n))))
+
+      (define (get-breakpoint-n curr-count)
+        (let ((bp-entry (assoc curr-label breakpoints)))
+          (and bp-entry
+              (rnrs-find (lambda (x) (> x curr-count))
+                         (cdr bp-entry)))))
 
       (define (reset-machine)
         (stack 'initialize)
         (for-each (lambda (reg) (reg 'reset))
                   (map cadr register-table))
-        (set! instruction-count 0))
+        (set! inst-count 0))
       
       (define (allocate-register name)
         (if (assoc name register-table)
@@ -39,19 +72,59 @@
               (cadr val)
               (error "Unknown register -- MACHINE" name))))
       
-      (define (execute)
+      (define (execute-1-inst)
         (let ((insts (pc 'get)))
+          
           (if (null? insts)
-              'execution-complete
+              'no-more-insts
+                
               (let ((next-inst (car insts)))
-                (if (eq? trace 'on)
-                    (begin (newline)
-                           (display (next-inst 'text))
-                           (newline)))
-                ((next-inst 'exec-proc))
-                (set! instruction-count (+ 1 instruction-count))
-                (execute)))))
+                (cond ((symbol? next-inst)
+                       (set! curr-label next-inst)
+                       (set! label-inst-count 0)
+                       (set! breakpoint-n (get-breakpoint-n 0))
+                       (advance-pc)
+                       (if (eq? trace 'on)
+                           (for-each display (list "\n" next-inst "\n")))
+                       (execute-1-inst))
+
+                      ((and breakpoint-n
+                            (= (+ label-inst-count 1) breakpoint-n))
+                        (for-each display (list "\nBreakpoint..."
+                                                curr-label " "
+                                                breakpoint-n "\n"))
+                        (set! breakpoint-n (get-breakpoint-n breakpoint-n))
+                        'breakpoint)
+
+                      (else (let ((inst-text (next-inst 'text)))
+                              (if (eq? trace 'on)
+                                  (for-each display (list "\n" inst-text "\n")))
+                              ((next-inst 'exec-proc))
+                              (set! inst-count (+ 1 inst-count))
+                              (set! label-inst-count (+ 1 label-inst-count))
+                              'done)))))))
+
+      (define (execute)
+        (let ((e1 (execute-1-inst)))
+          (if (eq? e1 'done)
+              (execute)
+              e1)))
       
+      (define (step-loop . args)
+        (if (and (pair? args)
+                 (eq? (car args) 'no-more-insts))
+            'no-more-insts
+            
+            (let ((cmd (read)))
+              (cond ((eq? cmd 'x) args)
+
+                    ((eq? cmd 's) (step-loop (execute-1-inst)))
+                
+                    ((eq? cmd 'p) (step-loop (execute)))
+                
+                    (else (for-each display (list "Unknown input to step-loop: " cmd "\n"))
+                          (step-loop))))))
+
       (define (dispatch message)
         (cond ((eq? message 'start)
                ((pc 'set) the-instruction-sequence)
@@ -70,41 +143,40 @@
 
               ((eq? message 'stack) stack)
               
-              ((eq? message 'advance-pc) ((pc 'set) (cdr (pc 'get))))
+              ((eq? message 'advance-pc) (advance-pc))
 
               ((eq? message 'install-labels)
-               (lambda (labels-table) (set! labels labels-table)))                                           
+               (lambda (labels-table) (set! labels labels-table)))
+
+              ((eq? message 'get-all-labels) (labels 'get-all-labels))
               ((eq? message 'lookup-label)
-               (lambda (label) ((labels 'lookup-label) label)))
+               (lambda (label) ((labels 'lookup) label)))
               ((eq? message 'lookup-label-regs)
-               (lambda (label) ((labels 'lookup-label-regs) label)))
+               (lambda (label) ((labels 'lookup-regs) label)))
 
               ((eq? message 'install-specs)
                (lambda (mach-specs) (set! specs mach-specs)))
               ((eq? message 'specs) specs)
 
-              ((eq? message 'set-in-regs)
-               (lambda (reg . regs) (set! in-regs (cons reg regs))))
-              ((eq? message 'set-out-regs)
-               (lambda (reg . regs) (set! out-regs (cons reg regs))))
-              ((eq? message 'get-in-regs) in-regs)
-              ((eq? message 'get-out-regs) out-regs)
-
-              ((eq? message 'reset-instruction-count) (set! instruction-count 0))
-              ((eq? message 'get-instruction-count) instruction-count)
+              ((eq? message 'reset-instruction-count) (set! inst-count 0))
+              ((eq? message 'get-instruction-count) inst-count)
 
               ((eq? message 'trace-on) (set! trace 'on)
                                        (for-each display (list "\nTrace:" trace "\n")))
               ((eq? message 'trace-off) (set! trace 'on)
                                         (for-each display (list "\nTrace:" trace "\n")))
-              ((eq? message 'trace-on-regs)
-               (lambda (reg-names)
-                 (for-each (lambda (r) ((lookup-register r) 'trace-on))
-                           reg-names)))
-              ((eq? message 'trace-off-regs)
-               (lambda (reg-names)
-                 (for-each (lambda (r) ((lookup-register r) 'trace-off))
-                           reg-names)))
+              
+              ((eq? message 'set-breakpoint) set-breakpoint)
+                                             
+              ((eq? message 'cancel-breakpoint) cancel-breakpoint)
+              
+              ((eq? message 'cancel-all-breakpoints)
+               (for-each (lambda (bp) (apply cancel-breakpoint bp))
+                         breakpoints))
+              
+              ((eq? message 'proceed) (execute))
+              
+              ((eq? message 'step) (step-loop))
 
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
