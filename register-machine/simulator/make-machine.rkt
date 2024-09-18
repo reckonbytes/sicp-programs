@@ -5,7 +5,7 @@
            "assembler.rkt"
            "filter.rkt")
 
-(define (make-machine controller-text . init-cmds)
+(define (make-machine controller-text init-ops . init-cmds)
   
   (let ((machine (make-new-machine))
         (specs (get-machine-specs controller-text)))
@@ -16,20 +16,9 @@
                 ((machine 'allocate-register) register-name))
               (specs 'regs))
 
-    (define (recur-cmd cmd)
-      (let ((cmd-result (apply (car cmd) (cadr cmd))))
-        (if (pair? (cddr cmd))
-            (recur-cmd (cons cmd-result (cddr cmd)))
-            cmd-result)))
-    
-    (define (exec-cmd cmd)
-      (cond ((symbol? cmd) (machine cmd))
-            ((pair? (cdr cmd)) (recur-cmd (cons (machine (car cmd)) (cdr cmd))))
-            (else (machine (car cmd)))))
+    ((machine 'install-operations) init-ops)
 
-    (for-each exec-cmd init-cmds)
-
-    ;Ops not installed by init-cmds are taken from scheme-report-environment
+    ;Ops not installed by init-ops are taken from scheme-report-environment
     (let ((uninstalled-ops (filter (lambda (op)
                                      (not (assoc op (machine 'operations))))
                                    ((machine 'specs) 'ops))))
@@ -45,6 +34,19 @@
       
     ((machine 'install-instruction-sequence)
      (assemble controller-text machine))
+
+    (define (recur-cmd cmd)
+      (let ((cmd-result (apply (car cmd) (cadr cmd))))
+        (if (pair? (cddr cmd))
+            (recur-cmd (cons cmd-result (cddr cmd)))
+            cmd-result)))
+    
+    (define (exec-cmd cmd)
+      (cond ((symbol? cmd) (machine cmd))
+            ((pair? (cdr cmd)) (recur-cmd (cons (machine (car cmd)) (cdr cmd))))
+            (else (machine (car cmd)))))
+
+    (for-each exec-cmd init-cmds)
       
     machine)) 
 
