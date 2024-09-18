@@ -4,10 +4,25 @@
   (let ((s '())
         (number-pushes 0)
         (max-depth 0)
-        (curr-depth 0))
+        (curr-depth 0)
+        (trace #f))
+
+    (define (do-trace)
+      (if trace
+          (begin
+            (display "\nStack:\n")
+            (for-each (lambda (x)
+                        (display x)
+                        (newline))
+                      s)
+            (display "<stack-end>\n"))))
+
+    (define (set-stack val)
+      (set! s val)
+      (do-trace))
     
     (define (push x)
-      (set! s (cons x s))
+      (set-stack (cons x s))
       (set! number-pushes (+ 1 number-pushes))
       (set! curr-depth (+ 1 curr-depth))
       (set! max-depth (max curr-depth max-depth))
@@ -17,12 +32,12 @@
       (if (null? s)
           (error "Empty stack -- POP")
           (let ((top (car s)))
-            (set! s (cdr s))
+            (set-stack (cdr s))
             (set! curr-depth (- curr-depth 1))
             top)))
     
     (define (initialize)
-      (set! s '())
+      (set-stack '())
       (set! number-pushes 0)
       (set! max-depth 0)
       (set! curr-depth 0)
@@ -48,6 +63,9 @@
             
             ((eq? message 'print-statistics)
              (print-statistics))
+
+            ((eq? message 'trace-on) (set! trace #t))
+            ((eq? message 'trace-off) (set! trace #f))
             
             (else
              (error "Unknown request -- STACK" message))))
