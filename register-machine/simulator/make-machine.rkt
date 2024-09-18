@@ -16,19 +16,32 @@
                 ((machine 'allocate-register) register-name))
               (specs 'regs))
 
-    (for-each (lambda (cmd)
-                (if (pair? cmd)
-                    (apply (machine (car cmd)) (cdr cmd))
-                    (machine cmd)))
-              init-cmds)
+    (define (recur-cmd cmd)
+      (let ((cmd-result (apply (car cmd) (cadr cmd))))
+        (if (pair? (cddr cmd))
+            (recur-cmd (cons cmd-result (cddr cmd)))
+            cmd-result)))
+    
+    (define (exec-cmd cmd)
+      (cond ((symbol? cmd) (machine cmd))
+            ((pair? (cdr cmd)) (recur-cmd (cons (machine (car cmd)) (cdr cmd))))
+            (else (machine (car cmd)))))
+
+    (for-each exec-cmd init-cmds)
 
     ;Ops not installed by init-cmds are taken from scheme-report-environment
-    ((machine 'install-operations)
-     (map (lambda (op)
-            (cons op (eval op (scheme-report-environment 5))))
-          
-          (filter (lambda (op) (not (assoc op (machine 'operations))))
-                  ((machine 'specs) 'ops))))
+    (let ((uninstalled-ops (filter (lambda (op)
+                                     (not (assoc op (machine 'operations))))
+                                   ((machine 'specs) 'ops))))
+      (if (not (null? uninstalled-ops))
+          (begin
+            (display "\nInstalling ops from scheme-report-environment:\n")
+            ((machine 'install-operations)
+             (map (lambda (op)
+                    (for-each display (list op " "))
+                    (cons op (eval op (scheme-report-environment 5))))
+                  uninstalled-ops))
+            (newline))))
       
     ((machine 'install-instruction-sequence)
      (assemble controller-text machine))
