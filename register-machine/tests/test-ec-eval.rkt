@@ -1,0 +1,91 @@
+#lang sicp
+
+(#%require "test-make-machine.rkt"
+           "../controllers/ec-eval.rkt"
+           "../controllers/ec-eval-operations.rkt"
+            (rename racket/base
+                    rkvoid? void?)
+ )
+
+(define init-cmds (append (list
+                           ;'trace-on
+                           ;'(stack (trace-on))
+                           ;'(set-breakpoint (ev-application 3))
+                           )
+                          (map (lambda (reg)
+                                 `(get-register (,reg) (trace-on)))
+                               '(
+                                 ;argl exp val proc unev
+                                 ))
+                          ))
+
+(define ec-eval-test-mach
+  (apply make-test-machine
+         (cons ec-eval
+               (cons ec-eval-ops-assoc
+                     init-cmds))))
+
+(define (is-proc? x)
+  (or (procedure? x)
+      (primitive-procedure? x)
+      (compound-procedure? x)
+      (scheme-procedure? x)))
+
+(define (test-ec-eval exp)
+  (let* ((scheme-output (eval exp (scheme-report-environment 5)))
+
+         (test-args (cond ((rkvoid? scheme-output)
+                           `((outputs (val ok))))
+
+                          ((procedure? scheme-output)
+                           `((outputs (val ,scheme-output))
+                             (output-check-map ,is-proc?)))
+
+                          (else `((outputs (val ,scheme-output)))))))
+
+    (apply (ec-eval-test-mach 'test)
+           (cons `(inputs (exp ,exp))
+                 test-args))))
+  
+
+(for-each test-ec-eval
+
+          '(
+            765
+            "clockwork"
+            (quote a)
+             -
+            (= 2 5)
+            (* 31 41)
+            (if 2 4 5)
+            (if (= 2 0) 12 (if (= 4 0) 4 7))
+            (lambda (x) 1)
+            
+            (begin (define x 3)
+                   (set! x 2)
+                   x)
+
+            (begin
+              (define x 7)
+              (if (= x 0)
+                  (set! x 2)
+                  (set! x 9)))
+
+            (begin
+              (define (square x)
+                (* x x))
+              (square 7))
+
+            (begin
+              (define (square x) (* x x))
+              (define (cube x) (* x (square x)))
+              (cube 14))
+
+            (begin
+              (define (factorial x)
+                (if (= x 0)
+                    1
+                    (* x (factorial (- x 1)))))
+              
+              (factorial 9))
+           ))
