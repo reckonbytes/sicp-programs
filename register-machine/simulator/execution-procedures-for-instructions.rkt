@@ -54,8 +54,16 @@
           (machine 'advance-pc)))))
 
 (define (make-goto inst machine)
-  (let ((insts ((machine 'lookup-label) (goto-label inst))))
-    (lambda () ((((machine 'get-register) 'pc) 'set) insts))))
+  (let ((dest (goto-dest inst)))
+    (if (register-exp? dest)
+        (let ((reg ((machine 'get-register)
+                    (register-exp-reg dest))))
+          (lambda ()
+            ((((machine 'get-register) 'pc) 'set)
+             ((machine 'lookup-label) (reg 'get)))))
+
+        (let ((insts ((machine 'lookup-label) dest)))
+          (lambda () ((((machine 'get-register) 'pc) 'set) insts))))))
 
 (define (make-perform inst machine)
   (let ((action (perform-action inst)))
