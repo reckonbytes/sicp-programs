@@ -88,7 +88,11 @@
                   (add-specs (list 'labels (branch-label inst))))
         
                  ((eq? inst-type 'goto)
-                  (add-specs (list 'labels (goto-label inst))))
+                  (let ((dest (goto-dest inst)))
+                    (cond ((label? dest) (add-specs (list 'labels dest)))
+                          ((register-exp? dest)
+                           (add-specs (list 'regs (register-exp-reg dest))))
+                          (else (error "Goto destination neither a label nor a register expression. -- GET-MACHINE-SPECS" dest)))))
 
                  ((eq? inst-type 'label-save)
                   (add-specs (list 'labels (save-exp-label inst))
