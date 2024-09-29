@@ -35,7 +35,7 @@
 (define (branch-label branch-instruction)
   (cadr branch-instruction))
 
-(define (goto-label goto-instruction)
+(define (goto-dest goto-instruction)
   (cadr goto-instruction))
 
 (define (save-exp-label exp) (cadr exp))
