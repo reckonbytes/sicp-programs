@@ -1,5 +1,7 @@
 #lang sicp
 
+(#%require "../tagged-list.rkt")
+
 ;Selectors for eval:
 ;a.k.a. "syntax of the language being evaluated"
 
@@ -9,11 +11,6 @@
         (else false)))
 
 (define (variable? exp) (symbol? exp))
-
-(define (tagged-list? exp tag)
-  (if (pair? exp)
-      (eq? (car exp) tag)
-      false))
 
 (define (quoted? exp) 
   (tagged-list? exp 'quote))
@@ -243,6 +240,15 @@
 (define (scheme-procedure? proc)
   (tagged-list? proc 'scheme-procedure))
 
+(define (make-compiled-procedure entry env)
+  (list 'compiled-procedure entry env))
+
+(define (compiled-procedure? proc)
+  (tagged-list? proc 'compiled-procedure))
+
+(define (compiled-procedure-entry c-proc) (cadr c-proc))
+(define (compiled-procedure-env c-proc) (caddr c-proc))
+
 ;driver loop
 (define input-prompt ";;; M-Eval input:")
 (define output-prompt ";;; M-Eval value:")
@@ -260,6 +266,13 @@
                      (procedure-body object)
                      '<procedure-env>))
       (display object)))
+
+;compile expression selectors
+(define (compile? exp)
+  (tagged-list? exp 'compile))
+
+(define (exp-to-compile input-exp)
+  (cadr input-exp))
 
 ;operations assoc-list
 (define ec-eval-ops-assoc
@@ -314,6 +327,12 @@
         (cons 'definition-variable definition-variable)
         (cons 'define-variable! define-variable!)
         (cons 'scheme-procedure? scheme-procedure?)
+        (cons 'make-compiled-procedure make-compiled-procedure)
+        (cons 'compiled-procedure? compiled-procedure?)
+        (cons 'compiled-procedure-entry compiled-procedure-entry)
+        (cons 'compiled-procedure-env compiled-procedure-env)
+        (cons 'compile? compile?)
+        (cons 'exp-to-compile exp-to-compile)
         ))
 
 (#%provide (all-defined))
