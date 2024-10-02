@@ -1,9 +1,6 @@
 #lang sicp
 
-(define (tagged-list? exp tag)
-  (if (pair? exp)
-      (eq? (car exp) tag)
-      false))
+(#%require "../tagged-list.rkt")
 
 (define (register-exp? exp) (tagged-list? exp 'reg))
 (define (register-exp-reg exp) (cadr exp))
@@ -54,4 +51,4 @@
 
 (define (perform-action inst) (cdr inst))
 
-(#%provide (all-defined-except tagged-list?))
+(#%provide (all-defined))
