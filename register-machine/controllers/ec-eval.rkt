@@ -7,12 +7,32 @@
 ;proc: saves evaluated proc (while the arguments are evaluated),
 ;unev: contains unevaluated expression or unevaluated part(s) of the expression,
 ;argl: saves evaluated arguments.
- 
+
 (define ec-eval
   '(
-    (label-save done)    
-    ;(assign exp (op read)) ;user-input exp
+    (label-save done)
+
     (assign env (op get-global-environment))
+
+    (branch eval-dispatch)
+    (test (op reg-set?) (const exp))
+    (branch eval-print-loop)
+
+    read-eval-print-loop
+    (perform
+     (op prompt-for-input) (const ";;; EC-Eval input:"))
+    (assign exp (op read))
+    (test (op eq?) (reg exp) (const exit))
+    (branch done)
+    eval-print-loop
+    (label-save print-result)
+    (goto eval-dispatch)
+    
+    print-result
+    (perform
+     (op announce-output) (const ";;; EC-Eval value:"))
+    (perform (op user-print) (reg val))
+    (goto read-eval-print-loop)
     
     eval-dispatch
     (test (op self-evaluating?) (reg exp))
@@ -31,6 +51,8 @@
     (branch ev-lambda)
     (test (op begin?) (reg exp))
     (branch ev-begin)
+    (test (op compile?) (reg exp))
+    (branch ev-compile)
     (test (op application?) (reg exp))
     (branch ev-application)
     (goto unknown-expression-type)
@@ -152,6 +174,8 @@
     (branch primitive-apply)
     (test (op compound-procedure?) (reg proc))
     (branch compound-apply)
+    (test (op compiled-procedure?) (reg proc))
+    (branch compiled-apply)
     (test (op scheme-procedure?) (reg proc)) ;Any procedure not defined as primitive and not found in env is seeked from the scheme-report-environment.
     (branch primitive-apply)
     (goto unknown-procedure-type)
@@ -167,6 +191,17 @@
     (assign unev (op procedure-body) (reg proc))
     (goto ev-seq-with-env-unev)
 
+    compiled-apply
+    (assign exp (op compiled-procedure-entry) (reg proc))
+    (goto (reg exp))
+
+    ev-compile
+    (assign exp (op exp-to-compile) (reg exp))
+    (assign exp (op compile) (reg exp))
+    (assign exp (op append) (reg exp) (const ((label-restore))))
+    (assign exp (op assemble) (reg exp))
+    (goto (reg exp))    
+
     unknown-expression-type
     (assign val (const unknown-expression-type-error))
     (goto signal-error)
@@ -177,6 +212,7 @@
     
     signal-error
     (perform (op user-print) (reg val))
+    (label-restore)
     
     done
     ))
