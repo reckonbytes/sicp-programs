@@ -8,7 +8,7 @@
 (define (compile exp)
   (get-seq-stmts (recr-compile exp)))
 
-(define all-regs '(val proc argl env continue))
+(define all-regs '(val proc argl env))
 
 (define (recr-compile exp)
   (cond ((self-evaluating? exp)
@@ -133,14 +133,26 @@
                                '(env)
                                (cons first-operand-seq
                                      rest-operands-seq)))
-                
+
+                (primitive-branch (make-label 'primitive-branch))
                 (compiled-branch (make-label 'compiled-branch))
                 (after-call (make-label 'after-call))
 
-                (test-seq `((test (op compiled-procedure?) (reg proc))
-                            (branch ,compiled-branch)))
+                (test-seq `((test (op primitive-procedure?) (reg proc))
+                            (branch ,primitive-branch)
+                            (test (op compiled-procedure?) (reg proc))
+                            (branch ,compiled-branch)
+                            (test (op scheme-procedure?) (reg proc))
+                            (branch ,primitive-branch)
+                            (perform (op display)
+                                     (const "\nERROR: Application procedure is neither primitive nor compiled. -- COMPILER.\n"))
+                            (assign val (op reset-reg) (const val))
+                            (goto ,after-call)))
+                            
+                            
 
-                (primitive-branch-seq `((assign val (op apply-primitive-procedure)
+                (primitive-branch-seq `(,primitive-branch
+                                        (assign val (op apply-primitive-procedure)
                                                 (reg proc) (reg argl))
                                         (goto ,after-call)))
 
