@@ -1,7 +1,9 @@
 #lang sicp
 
+(define unassigned '*unassigned*)
+
 (define (make-register name)
-  (let* ((contents '*unassigned*)
+  (let* ((contents unassigned)
          (trace 'off)
          (trace-off-set (lambda (value) (set! contents value)))
          (trace-on-set (lambda (value)
@@ -12,7 +14,8 @@
     (define (dispatch message)
       (cond ((eq? message 'get) contents)
             ((eq? message 'set) set-reg )
-            ((eq? message 'reset) (set-reg '*unassigned*))
+            ((eq? message 'reset) (set-reg unassigned))
+            ((eq? message 'is-set?) (not (eq? contents unassigned)))
             ((eq? message 'trace-on)
              (set! set-reg trace-on-set)
              (set! trace 'on)
