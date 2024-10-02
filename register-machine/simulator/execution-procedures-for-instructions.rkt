@@ -59,8 +59,11 @@
         (let ((reg ((machine 'get-register)
                     (register-exp-reg dest))))
           (lambda ()
-            ((((machine 'get-register) 'pc) 'set)
-             ((machine 'lookup-label) (reg 'get)))))
+            (let ((reg-val (reg 'get)))
+              ((((machine 'get-register) 'pc) 'set)
+               (if (label? reg-val)
+                   ((machine 'lookup-label) reg-val)
+                   reg-val)))))
 
         (let ((insts ((machine 'lookup-label) dest)))
           (lambda () ((((machine 'get-register) 'pc) 'set) insts))))))
@@ -74,7 +77,6 @@
             (action-proc)
             (machine 'advance-pc)))
         (error "Bad PERFORM instruction -- ASSEMBLE" inst))))
-
 
 (define (make-stack-entry name val) (cons name val))
 (define (get-entry-name stack-entry) (car stack-entry))
