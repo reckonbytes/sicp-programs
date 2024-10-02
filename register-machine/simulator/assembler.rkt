@@ -32,7 +32,7 @@
          (inst-seq (filter (lambda (i) (not (restored-regs-exp? i)))
                            ctrl-seq)))
 
-    ((machine 'install-labels) (get-labels-dispatch ctrl-seq inst-seq))
+    ((machine 'add-labels) (extract-labels ctrl-seq inst-seq))
     
     (update-inst-seq! inst-seq machine)
 
