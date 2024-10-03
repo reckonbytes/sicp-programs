@@ -23,7 +23,7 @@
     
     (define (set-inputs inputs-arg)
       (if (not inputs-arg)
-          (error "Inputs not given -- TEST-MACHINE.")
+          (display "\nInputs not given -- TEST-MACHINE.\n")
           (begin (display "\nSetting input regs\n")
                  (for-each (lambda (input)
                              (let* ((reg-name (car input))
@@ -89,8 +89,12 @@
                (set! test-args (cons arg1 other-args))
 
                (let ((reset-arg (assoc 'reset test-args)))
-                 (if (if reset-arg (cdr reset-arg) #t)
+                 (if (if reset-arg (cadr reset-arg) #f)
                      (mach 'reset)))
+
+               (let ((loop-arg (assoc 'eval-loop test-args)))
+                 (if (not (if loop-arg (cadr loop-arg) #t))
+                     ((((mach 'get-register) 'flag) 'set) #t)))
                  
                (set-inputs (assoc 'inputs test-args))
 
