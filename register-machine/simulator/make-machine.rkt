@@ -3,7 +3,8 @@
 (#%require "make-new-machine.rkt"
            "get-machine-specs.rkt"
            "assembler.rkt"
-           "filter.rkt")
+           "filter.rkt"
+           "../compiler/compile.rkt")
 
 (define (make-machine controller-text init-ops . init-cmds)
   
@@ -16,21 +17,30 @@
                 ((machine 'allocate-register) register-name))
               (specs 'regs))
 
-    ((machine 'install-operations) init-ops)
+    (define (install-uninstalled-ops ops-list)
+      (let ((uninstalled-ops (filter (lambda (op)
+                                       (not (assoc op (machine 'operations))))
+                                     ops-list)))
+        (if (not (null? uninstalled-ops))
+            (begin
+              (display "\nInstalling ops from scheme-report-environment:\n")
+              ((machine 'install-operations)
+               (map (lambda (op)
+                      (for-each display (list op " "))
+                      (cons op (eval op (scheme-report-environment 5))))
+                    uninstalled-ops))
+              (newline)))))
+
+    ((machine 'install-operations)
+     (append (list (cons 'compile (lambda (exp) (compile exp)))
+                   (cons 'assemble (lambda (compiled-exp)
+                                     (let ((c-specs (get-machine-specs compiled-exp)))
+                                       (install-uninstalled-ops (c-specs 'ops))
+                                       (assemble compiled-exp machine)))))
+             init-ops))
 
     ;Ops not installed by init-ops are taken from scheme-report-environment
-    (let ((uninstalled-ops (filter (lambda (op)
-                                     (not (assoc op (machine 'operations))))
-                                   ((machine 'specs) 'ops))))
-      (if (not (null? uninstalled-ops))
-          (begin
-            (display "\nInstalling ops from scheme-report-environment:\n")
-            ((machine 'install-operations)
-             (map (lambda (op)
-                    (for-each display (list op " "))
-                    (cons op (eval op (scheme-report-environment 5))))
-                  uninstalled-ops))
-            (newline))))
+    (install-uninstalled-ops ((machine 'specs) 'ops))
       
     ((machine 'install-instruction-sequence)
      (assemble controller-text machine))
