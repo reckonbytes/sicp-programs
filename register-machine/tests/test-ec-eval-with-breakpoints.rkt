@@ -1,37 +1,42 @@
 #lang sicp
 
-(#%require "test-make-machine.rkt"
+(#%require "../simulator/make-machine.rkt"
            "../controllers/ec-eval.rkt"
            "../controllers/ec-eval-operations.rkt"
  )
 
-(define ec-eval-test-mach
-  (apply make-test-machine
-         (list ec-eval ec-eval-ops-assoc)))
+(define test-mach
+  (make-machine ec-eval ec-eval-ops-assoc))
 
-((ec-eval-test-mach 'simulated-fn)
- (lambda (exp) (eval exp (scheme-report-environment 5)))
- '(exp))
+(test-mach 'trace-on)
 
-((ec-eval-test-mach 'machine) 'trace-on)
 (for-each (lambda (reg)
-            ((((ec-eval-test-mach 'machine)
+            (((test-mach
                'get-register) reg) 'trace-on))
-          '(exp val))
+          '(
+            ;exp val argl proc
+            ))
+;((test-mach 'stack) 'trace-on)
 
-(((ec-eval-test-mach 'machine) 'set-breakpoint) 'ev-definition 1)
+((test-mach 'set-breakpoint) 'ev-application 3)
+;((test-mach 'set-breakpoint) 'ev-compile 3)
 
-((ec-eval-test-mach 'test)
- `(ignore-breakpoints ,false)
- '(inputs (exp (begin
-                 (define (factorial x)
-                   (if (= x 0)
-                       1
-                       (* x (factorial (- x 1)))))
+((((test-mach 'get-register) 'exp) 'set)
+ '(begin
+    (compile
+     (define (factorial x)
+       (if (= x 0)
+           1
+           (* x (factorial (- x 1))))))
               
-                 (factorial 4)))))
+    (factorial 3)))
 
-(ec-eval-test-mach 'step)
+(test-mach 'start)
+
+(test-mach 'step)
 ; p = proceed (till next breakpoint)
 ; s = step (execute 1 instruction)
 ; x = quit stepping
+
+; EC-Eval input: exit
+; (Input 'exit' to exit the REPL)
