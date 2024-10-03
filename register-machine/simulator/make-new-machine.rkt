@@ -6,6 +6,7 @@
                    rnrs-remove remove)
            (rename rnrs/lists-6
                    rnrs-find find)
+           "filter.rkt"
            )             
 
 (define (make-new-machine)
@@ -17,7 +18,7 @@
     (let ((the-ops (list ))
           (register-table
            (list (list 'pc pc) (list 'flag flag)))
-          (labels '())
+          (labels-alist '())
           (inst-count 0)
           (trace 'off)
           (specs '())
@@ -29,8 +30,21 @@
       (define (advance-pc)
         ((pc 'set) (cdr (pc 'get))))
 
+      (define (get-label-data label)
+        (let ((entry (assoc label labels-alist)))
+          (if entry
+              (cdr entry)
+              (error "Label entry not found -- MACHINE." label))))
+
+      (define (add-labels new-alist)
+        (for-each (lambda (label)
+                    (if (assoc label labels-alist)
+                        (error "Existing label repeated -- MACHINE." label)))
+                  new-alist)
+        (set! labels-alist (append new-alist labels-alist)))
+
       (define (set-breakpoint label n)
-        (let ((max-bp ((labels 'max-breakpoint) label)))
+        (let ((max-bp ((get-label-data label) 'max-breakpoint)))
           (if (or (< n 1) (> n max-bp))
               (error "Breakpoint n must be >0 and < number of instructions before the next label. -- SET-BREAKPOINT." n)))
         
@@ -51,12 +65,6 @@
           (and bp-entry
               (rnrs-find (lambda (x) (> x curr-count))
                          (cdr bp-entry)))))
-
-      (define (reset-machine)
-        (stack 'initialize)
-        (for-each (lambda (reg) (reg 'reset))
-                  (map cadr register-table))
-        (set! inst-count 0))
       
       (define (allocate-register name)
         (if (assoc name register-table)
@@ -71,6 +79,31 @@
           (if val
               (cadr val)
               (error "Unknown register -- MACHINE" name))))
+
+      (define (reset-machine)
+        (stack 'initialize)
+        (for-each (lambda (reg) (reg 'reset))
+                  (map cadr register-table))
+        (((lookup-register 'flag) 'set) false)
+        (set! inst-count 0))
+      (reset-machine)
+
+      (define (install-operations new-ops)
+        (let ((redef-ops (filter (lambda (op)
+                                   (assoc op the-ops))
+                                 new-ops)))
+          (if (not (null? redef-ops))
+              (for-each display "\nRedefined operations: " redef-ops "\n"))
+          (set! the-ops (append new-ops the-ops))))
+
+      (install-operations
+       (list (cons 'reg-set?
+                   (lambda (reg-name)
+                     ((lookup-register reg-name) 'is-set?)))
+             (cons 'reset-reg
+                   (lambda (reg-name)
+                     ((lookup-register reg-name) 'reset)))
+             ))
       
       (define (execute-1-inst)
         (let ((insts (pc 'get)))
@@ -137,22 +170,20 @@
               ((eq? message 'allocate-register) allocate-register)
               ((eq? message 'get-register) lookup-register)
 
-              ((eq? message 'install-operations)
-               (lambda (ops) (set! the-ops (append the-ops ops))))
+              ((eq? message 'install-operations) install-operations)
               ((eq? message 'operations) the-ops)
 
               ((eq? message 'stack) stack)
               
               ((eq? message 'advance-pc) (advance-pc))
 
-              ((eq? message 'install-labels)
-               (lambda (labels-table) (set! labels labels-table)))
+              ((eq? message 'add-labels) add-labels)
 
-              ((eq? message 'get-all-labels) (labels 'get-all-labels))
-              ((eq? message 'lookup-label)
-               (lambda (label) ((labels 'lookup) label)))
+              ((eq? message 'get-all-labels) (map car labels-alist))
+              ((eq? message 'lookup-label) 
+               (lambda (label) ((get-label-data label) 'inst-seq)))
               ((eq? message 'lookup-label-regs)
-               (lambda (label) ((labels 'lookup-regs) label)))
+               (lambda (label) ((get-label-data label) 'label-regs)))
 
               ((eq? message 'install-specs)
                (lambda (mach-specs) (set! specs mach-specs)))
@@ -174,9 +205,11 @@
                (for-each (lambda (bp) (apply cancel-breakpoint bp))
                          breakpoints))
               
-              ((eq? message 'proceed) (execute))
+              ((eq? message 'proceed) (display "\n<Continuing execution till next breakpoint>\n")
+                                      (execute))
               
-              ((eq? message 'step) (step-loop))
+              ((eq? message 'step) (display "\n<Stepping through instructions>\n")
+                                   (step-loop))
 
               (else (error "Unknown request -- MACHINE" message))))
       dispatch)))
