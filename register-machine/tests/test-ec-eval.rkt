@@ -11,6 +11,7 @@
                            ;'trace-on
                            ;'(stack (trace-on))
                            ;'(set-breakpoint (ev-application 3))
+                           ;'(set-breakpoint (ev-compile 1))
                            )
                           (map (lambda (reg)
                                  `(get-register (,reg) (trace-on)))
@@ -19,7 +20,7 @@
                                  ))
                           ))
 
-(define ec-eval-test-mach
+(define ec-eval-tester
   (apply make-test-machine
          (cons ec-eval
                (cons ec-eval-ops-assoc
@@ -31,8 +32,15 @@
       (compound-procedure? x)
       (scheme-procedure? x)))
 
+(define (exp-without-compiles exp)
+  (if (compile? exp)
+      (exp-to-compile exp)
+      (if (pair? exp)
+          (map exp-without-compiles exp)
+          exp)))
+
 (define (test-ec-eval exp)
-  (let* ((scheme-output (eval exp (scheme-report-environment 5)))
+  (let* ((scheme-output (eval (exp-without-compiles exp) (scheme-report-environment 5)))
 
          (test-args (cond ((rkvoid? scheme-output)
                            `((outputs (val ok))))
@@ -43,9 +51,10 @@
 
                           (else `((outputs (val ,scheme-output)))))))
 
-    (apply (ec-eval-test-mach 'test)
+    (apply (ec-eval-tester 'test)
            (cons `(inputs (exp ,exp))
-                 test-args))))
+                 (cons `(eval-loop ,false)
+                       test-args)))))
   
 
 (for-each test-ec-eval
@@ -88,4 +97,35 @@
                     (* x (factorial (- x 1)))))
               
               (factorial 9))
+
+            (compile (= 5 6))
+            
+            (compile (begin
+                       (define (square x)
+                         (* x x))
+                       (square 7)))
+
+            (compile (begin
+                       (define (factorial x)
+                         (if (= x 0)
+                             1
+                             (* x (factorial (- x 1)))))
+              
+                       (factorial 15)))
+
+            (begin
+              (compile (define (factorial x)
+                         (if (= x 0)
+                             1
+                             (* x (factorial (- x 1))))))
+              
+              (factorial 8))
+
+            (begin
+              (define (factorial x)
+                (if (= x 0)
+                    1
+                    (* x (factorial (- x 1)))))
+              
+              (compile (factorial 9))) ;MUST GIVE ERROR
            ))
