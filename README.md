@@ -1,1 +1,1 @@
-My take on programs from the book "Structure and Interpretation of Computer Programs". 
+My interpretation of programs from the book "Structure and Interpretation of Computer Programs". 
