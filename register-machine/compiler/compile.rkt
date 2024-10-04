@@ -27,10 +27,12 @@
         ((assignment? exp)
          (let ((var (assignment-variable exp))
                (aval (assignment-value exp)))
+
            (preserve-append-seqs
-            'after-set-val-compile
-            '(env)
+            'value-to-set-evald '(env)
+
             (recr-compile aval)
+            
             `((perform (op set-variable-value!)
                        (const ,var) (reg val) (reg env))
               (assign val (const ok))))))
@@ -38,10 +40,12 @@
         ((definition? exp)
          (let ((var (definition-variable exp))
                (dval (definition-value exp)))
+           
            (preserve-append-seqs
-            'after-define-val-compile
-            '(env)
+            'value-to-define-evald '(env)
+            
             (recr-compile dval)
+
             `((perform (op define-variable!)
                        (const ,var) (reg val) (reg env))
               (assign val (const ok))))))
@@ -61,8 +65,7 @@
                               `(,if-end))))
              
              (preserve-append-seqs
-              'after-if-predicate-compile
-              '(env)
+              'if-predicate-evald '(env)
 
               (recr-compile (if-predicate exp))
               
@@ -75,8 +78,8 @@
         ((begin? exp)
          (let ((exp-seq (begin-actions exp)))
            (preserve-append-seq-list
-            'after-seq-exp-compile
-            '(env) (map compile exp-seq))))
+            'seq-exp-evaluated '(env)
+            (map compile exp-seq))))
         
         
         ((lambda? exp)
@@ -120,17 +123,14 @@
                 
                 (rest-operands-seq
                  (map (lambda (arg)
-                        (preserve-append-seqs
-                         'before-argl-update
-                         '(argl)
-                         (recr-compile arg)
-                         '((assign argl (op adjoin-arg)
-                                   (reg val) (reg argl)))))
+                        (preserve-append-seqs 'arg-evald '(argl)
+                                              (recr-compile arg)
+                                              '((assign argl (op adjoin-arg)
+                                                        (reg val) (reg argl)))))
                       (if (null? ops) '() (cdr ops))))
 
                 (operands-seq (preserve-append-seq-list
-                               'after-arg-compile
-                               '(env)
+                               'arg-added-to-argl '(env)
                                (cons first-operand-seq
                                      rest-operands-seq)))
 
@@ -148,8 +148,6 @@
                                      (const "\nERROR: Application procedure is neither primitive nor compiled. -- COMPILER.\n"))
                             (assign val (op reset-reg) (const val))
                             (goto ,after-call)))
-                            
-                            
 
                 (primitive-branch-seq `(,primitive-branch
                                         (assign val (op apply-primitive-procedure)
@@ -167,7 +165,7 @@
                                          ,after-call)))))
            
            (preserve-append-seqs
-            'after-operator-compile '(env)
+            'proc-evald '(env)
                                  
             (recr-compile (operator exp))
 
@@ -176,7 +174,7 @@
              '((assign proc (reg val)))
 
              (preserve-append-seqs
-              'after-operands-compile '(proc)
+              'args-evald '(proc)
 
               operands-seq
 
