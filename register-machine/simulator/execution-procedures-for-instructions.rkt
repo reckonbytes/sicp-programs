@@ -1,7 +1,8 @@
 #lang sicp
 
 (#%require "controller-syntax.rkt"
-           "execution-procedures-for-subexpressions.rkt")
+           "execution-procedures-for-subexpressions.rkt"
+           "label-stack-entry.rkt")
 
 (define (make-execution-procedure inst machine)
   (cond ((eq? (car inst) 'assign)
@@ -77,10 +78,6 @@
             (action-proc)
             (machine 'advance-pc)))
         (error "Bad PERFORM instruction -- ASSEMBLE" inst))))
-
-(define (make-stack-entry name val) (cons name val))
-(define (get-entry-name stack-entry) (car stack-entry))
-(define (get-entry-value stack-entry) (cdr stack-entry))
 
 ;(label-save <label> <reg1> <reg2> ... <regn> )
 (define (make-save inst machine)
