@@ -1,7 +1,7 @@
 #lang sicp
 
 (#%require "register.rkt"
-           (only "stack.rkt" make-label-stack)
+           "label-stack.rkt"
            (rename rnrs/lists-6
                    rnrs-remove remove)
            (rename rnrs/lists-6
