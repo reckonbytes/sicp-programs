@@ -8,18 +8,16 @@
         (trace #f))
 
     (define (do-trace)
-      (if trace
-          (begin
-            (display "\nStack:\n")
-            (for-each (lambda (x)
-                        (display x)
-                        (newline))
-                      s)
-            (display "<stack-end>\n"))))
+      (display "\nStack:\n")
+      (for-each (lambda (x)
+                  (display x)
+                  (newline))
+                s)
+      (display "<stack-end>\n"))
 
     (define (set-stack val)
       (set! s val)
-      (do-trace))
+      (if trace (do-trace)))
     
     (define (push x)
       (set-stack (cons x s))
@@ -66,41 +64,13 @@
 
             ((eq? message 'trace-on) (set! trace #t))
             ((eq? message 'trace-off) (set! trace #f))
+
+            ((eq? message 'list)
+             (map (lambda (x) x) s))
             
             (else
              (error "Unknown request -- STACK" message))))
     
-    dispatch))
+    dispatch))                 
 
-(define end-frame-tag '*end*)
-
-(define (make-label-stack)
-  (let ((s (make-stack)))
-
-    (define (label-pop pops)
-      (let ((p (s 'pop)))
-        (if (eq? p end-frame-tag)
-            pops
-            (label-pop (cons p pops)))))
-             
-    (lambda (msg)
-      (cond ((eq? msg 'label-push)
-             (lambda (label . args)
-               ((s 'push) end-frame-tag)
-               (for-each (s 'push) args)
-               ((s 'push) label)
-               'ok))
-
-            ((eq? msg 'label-pop)
-             (let ((label (s 'pop))
-                   (args (label-pop '())))
-               (cons label args)))
-
-            ((memq msg '(pop push))
-             (error "Use 'label-push' and 'label-pop', not 'push' or 'pop' -- LABEL STACK" msg))
-
-            (else (s msg))))))
-                 
-
-(#%provide make-stack
-           make-label-stack)
+(#%provide make-stack)
