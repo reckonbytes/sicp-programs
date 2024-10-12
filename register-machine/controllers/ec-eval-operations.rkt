@@ -160,13 +160,12 @@
             (else (scan (cdr vars) (cdr vals)))))
     
     (if (eq? env the-empty-environment)
-        (begin
-          (for-each display (list "\nUnbound variable -- ENVIRONMENT. " var
-                                  " Trying scheme-report-environment...\n"))
-          `(scheme-procedure ,(eval var (scheme-report-environment 5))))
+        (lookup-scheme-env var)
+        
         (let ((frame (first-frame env)))
           (scan (frame-variables frame)
                 (frame-values frame)))))
+  
   (env-loop env))
 
 (define (set-variable-value! var val env)
@@ -240,6 +239,28 @@
 (define (scheme-procedure? proc)
   (tagged-list? proc 'scheme-procedure))
 
+(define (make-scheme-procedure-object procedure)
+  (list 'scheme-procedure procedure))
+
+(define looked-up-scheme-procs '())
+
+(define (save-scheme-proc name proc-obj)
+  (set! looked-up-scheme-procs
+        (cons (cons name proc-obj)
+              looked-up-scheme-procs)))
+
+(define (lookup-scheme-env var)
+  (let ((saved-proc (assoc var looked-up-scheme-procs)))
+    (if saved-proc
+        (cdr saved-proc)
+        (begin
+          (for-each display (list "\nUnbound variable -- ENVIRONMENT. " var
+                                  " Trying scheme-report-environment...\n"))
+          (let ((sproc (make-scheme-procedure-object
+                        (eval var (scheme-report-environment 5)))))
+            (save-scheme-proc var sproc)
+            sproc)))))
+
 (define (make-compiled-procedure entry env)
   (list 'compiled-procedure entry env))
 
@@ -267,12 +288,13 @@
                      '<procedure-env>))
       (display object)))
 
-;compile expression selectors
+;compile operations
 (define (compile? exp)
   (tagged-list? exp 'compile))
 
 (define (exp-to-compile input-exp)
   (cadr input-exp))
+
 
 ;operations assoc-list
 (define ec-eval-ops-assoc
