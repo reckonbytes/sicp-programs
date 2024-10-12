@@ -1,6 +1,6 @@
 #lang sicp
 
-(#%require "test-make-machine.rkt"
+(#%require "make-test-machine.rkt"
            "../controllers/ec-eval.rkt"
            "../controllers/ec-eval-operations.rkt"
             (rename racket/base
@@ -10,13 +10,11 @@
 (define init-cmds (append (list
                            ;'trace-on
                            ;'(stack (trace-on))
-                           ;'(set-breakpoint (ev-application 3))
-                           ;'(set-breakpoint (ev-compile 1))
                            )
                           (map (lambda (reg)
                                  `(get-register (,reg) (trace-on)))
                                '(
-                                 ;argl exp val proc unev
+                                 ;argl exp val proc unev env
                                  ))
                           ))
 
@@ -53,8 +51,7 @@
 
     (apply (ec-eval-tester 'test)
            (cons `(inputs (exp ,exp))
-                 (cons `(eval-loop ,false)
-                       test-args)))))
+                 test-args))))
   
 
 (for-each test-ec-eval
@@ -96,7 +93,9 @@
                     1
                     (* x (factorial (- x 1)))))
               
-              (factorial 9))
+              (factorial 3))
+
+            (compile 3) 
 
             (compile (= 5 6))
             
@@ -127,5 +126,5 @@
                     1
                     (* x (factorial (- x 1)))))
               
-              (compile (factorial 9))) ;MUST GIVE ERROR
+              (compile (factorial 10))) 
            ))
