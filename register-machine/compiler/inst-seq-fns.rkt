@@ -94,21 +94,6 @@
        p-regs (get-stmts iseq1)))
      inext-seq)))
 
-;preserve-append-seq-list is NOT a variable-number-of-args version of preserve-append-seqs. It is for use with expression sequences (in lambda-body & begin) & argument evaluation. Here, the regs are not preserved for the last sequence (even if they are needed by the last sequence).
-(define (preserve-append-seq-list label-entry regs seq-list)
-  (if (or (null? seq-list)
-          (null? (cdr seq-list))
-          (null? (cddr seq-list)))
-      
-      (apply append-seqs seq-list)
-      
-      (preserve-append-seq-list
-       label-entry regs
-       (cons (preserve-append-seqs
-              label-entry regs
-              (car seq-list) (cadr seq-list))
-             (cddr seq-list)))))
-
 (define (union . lists)
   (remove-duplicates (apply append lists)))
 
@@ -146,6 +131,6 @@
 (#%provide make-inst-seq
            get-seq-stmts
            preserve-append-seqs
-           preserve-append-seq-list
            append-seqs
-           append-seq-alternatives)
+           append-seq-alternatives
+           )
