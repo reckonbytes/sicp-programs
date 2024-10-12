@@ -1,19 +1,18 @@
 #lang sicp
 
-(#%require "test-make-machine.rkt"
+(#%require "make-test-machine.rkt"
            "../controllers/fibonacci.rkt"
            (rename math/number-theory
                    rk-fibonacci fibonacci))
 
 (define init-cmds (append (list
-                           'trace-on
+                           ;'trace-on
                            ;'(stack (trace-on))
-                           '(set-breakpoint (leaf-case 1))                           
                            )
                           (map (lambda (reg)
                                  `(get-register (,reg) (trace-on)))
                                '(
-                                 n val
+                                 ;n val
                                  ))
                           ))
 
@@ -25,11 +24,22 @@
 
 ((fib-tester 'simulated-fn) rk-fibonacci '(n))
 
-((fib-tester 'test)
- `(inputs (n 3))
- `(ignore-breakpoints ,false))
+(for-each (lambda (input)
+            ((fib-tester 'test)
+             `(inputs (n ,input))))
+          (list 5 8 (random 20)))
 
-(fib-tester 'step)
+(define fib-mach (fib-tester 'machine))
+
+((((fib-mach 'get-register) 'n) 'set) 3)
+
+((fib-mach 'set-breakpoint) 'leaf-case 1)
+
+(fib-mach 'trace-on)
+(((fib-mach 'get-register) 'val) 'trace-on)
+(fib-mach 'start)
+
+(fib-mach 'step)
 ; p = proceed (till next breakpoint)
 ; s = step (execute 1 instruction)
 ; x = quit stepping
