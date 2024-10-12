@@ -14,6 +14,8 @@
                          (list 'outputs (list 'val sim-out))))
         (test-args #f))
 
+    (mach 'repl-off)
+
     (define (try-sim inputs-arg)
       (let ((sim-inputs (map (lambda (reg)
                                (cadr (assoc reg (cdr inputs-arg))))
@@ -57,21 +59,14 @@
 
                       (cdr outputs-arg)))))
 
-    (define (proceed-mach exec-output)
-      (if (eq? exec-output 'breakpoint)
-          (proceed-mach (mach 'proceed))
-          exec-output))
-
     (define (check-run exec-output)
-      (if (eq? exec-output 'no-more-insts)
-          (begin 
-            (display "\nSimulator run\n")
-            (check-outputs
-             (or (assoc 'outputs test-args)
-                 (and sim-fn (try-sim (assoc 'inputs test-args))))
-             (assoc 'output-check-map test-args))
-            ((mach 'stack) 'print-statistics)
-            (set! test-args #f))))
+      (display "\nSimulator run\n")
+      (check-outputs
+       (or (assoc 'outputs test-args)
+           (and sim-fn (try-sim (assoc 'inputs test-args))))
+       (assoc 'output-check-map test-args))
+      ((mach 'stack) 'print-statistics)
+      (set! test-args #f))
 
     (lambda (msg)
       (cond ((eq? msg 'machine) mach)
@@ -91,22 +86,10 @@
                (let ((reset-arg (assoc 'reset test-args)))
                  (if (if reset-arg (cadr reset-arg) #f)
                      (mach 'reset)))
-
-               (let ((loop-arg (assoc 'eval-loop test-args)))
-                 (if (not (if loop-arg (cadr loop-arg) #t))
-                     ((((mach 'get-register) 'flag) 'set) #t)))
-                 
+  
                (set-inputs (assoc 'inputs test-args))
 
-               (check-run 
-                (let ((bp-arg (assoc 'ignore-breakpoints test-args)))
-                  (if (if bp-arg (cadr bp-arg) #t)
-                      (proceed-mach (mach 'start))
-                      (mach 'start))))
-               ))
-
-            ((memq msg '(proceed step))
-             (check-run (mach msg)))
+               (check-run (mach 'start))))
             
             (else (error "Unknown message to test-machine" msg))))
       ))
