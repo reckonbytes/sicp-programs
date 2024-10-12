@@ -1,6 +1,6 @@
 #lang sicp
 
-(#%require "test-make-machine.rkt"
+(#%require "make-test-machine.rkt"
            "../controllers/recursive-exponentiation.rkt"
  )
 
