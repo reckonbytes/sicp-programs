@@ -25,7 +25,11 @@
           (breakpoints '())
           (curr-label #f)
           (label-inst-count 0)
-          (breakpoint-n #f))
+          (breakpoint-n #f)
+          (repl #t))
+
+      (define (repl-set)
+        (((lookup-register 'flag) 'set) (not repl)))
 
       (define (advance-pc)
         ((pc 'set) (cdr (pc 'get))))
@@ -84,7 +88,7 @@
         (stack 'initialize)
         (for-each (lambda (reg) (reg 'reset))
                   (map cadr register-table))
-        (((lookup-register 'flag) 'set) false)
+        (repl-set)
         (set! inst-count 0))
       (reset-machine)
 
@@ -118,7 +122,11 @@
                        (set! breakpoint-n (get-breakpoint-n 0))
                        (advance-pc)
                        (if (eq? trace 'on)
-                           (for-each display (list "\n" next-inst "\n")))
+                           (begin
+                             (for-each display (list "\n" next-inst "\n"))
+                             (let ((lregs ((get-label-data next-inst) 'label-regs)))
+                               (if (not (null? lregs))
+                                   (for-each display `((restored-regs ,@lregs) "\n"))))))
                        (execute-1-inst))
 
                       ((and breakpoint-n
@@ -159,9 +167,13 @@
                           (step-loop))))))
 
       (define (dispatch message)
-        (cond ((eq? message 'start)
+        (cond ((eq? message 'repl-on) (set! repl #t) (repl-set))
+              ((eq? message 'repl-off) (set! repl #f) (repl-set))
+              
+              ((eq? message 'start)
                ((pc 'set) the-instruction-sequence)
                (execute))
+              
               ((eq? message 'install-instruction-sequence)
                (lambda (seq) (set! the-instruction-sequence seq)))
 
@@ -202,8 +214,7 @@
               ((eq? message 'cancel-breakpoint) cancel-breakpoint)
               
               ((eq? message 'cancel-all-breakpoints)
-               (for-each (lambda (bp) (apply cancel-breakpoint bp))
-                         breakpoints))
+               (set! breakpoints '()))
               
               ((eq? message 'proceed) (display "\n<Continuing execution till next breakpoint>\n")
                                       (execute))
